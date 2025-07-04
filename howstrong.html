@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HowStrong</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body {
+    background: linear-gradient(180deg, #e3ef26 0%, #076653 100%);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+  }
+  .container {
+    background: rgba(255 255 255 / 0.85);
+    border-radius: 1rem;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 12px 25px rgba(7, 102, 83, 0.4);
+    padding: 2rem;
+  }
+  h1 {
+    font-weight: 800;
+    font-size: 2.25rem;
+    color: #076653;
+    letter-spacing: 1px;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  label {
+    font-weight: 600;
+    color: #076653;
+  }
+  input[type="password"] {
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 2px solid #ccc;
+    font-size: 1.1rem;
+    width: 100%;
+    transition: border-color 0.3s ease;
+  }
+  input[type="password"]:focus {
+    outline: none;
+    border-color: #e3ef26;
+    box-shadow: 0 0 8px #e3ef26aa;
+  }
+  .strength-bar {
+    height: 1rem;
+    border-radius: 0.5rem;
+    background: #ddd;
+    overflow: hidden;
+    margin-top: 0.75rem;
+  }
+  .strength-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.4s ease, background 0.4s ease;
+    border-radius: 0.5rem;
+  }
+  .strength-text {
+    margin-top: 0.75rem;
+    font-weight: 600;
+    color: #076653;
+    min-height: 1.5rem;
+  }
+  .suggestions {
+    margin-top: 1rem;
+    color: #334d3e;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+  }
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0;
+    right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 14px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  input:checked + .slider {
+    background-color: #076653;
+  }
+  input:checked + .slider:before {
+    transform: translateX(24px);
+  }
+  .toggle-label {
+    color: #076653;
+    font-weight: 600;
+    margin-left: 0.75rem;
+    user-select: none;
+  }
+  footer {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: 0.85rem;
+    color: #334d3e;
+  }
+</style>
+</head>
+<body>
+  <main class="container" role="main" aria-label="Password strength checker application howstrong">
+    <h1>HowStrong</h1>
+
+    <label for="passwordInput">Enter your password:</label>
+    <input
+      id="passwordInput"
+      name="passwordInput"
+      type="password"
+      aria-describedby="strengthDesc suggestionsList"
+      placeholder="Type your password here"
+      autocomplete="off"
+      spellcheck="false"
+      aria-live="polite"
+    />
+
+    <div class="strength-bar" aria-hidden="true">
+      <div class="strength-fill" id="strengthFill"></div>
+    </div>
+    <p class="strength-text" id="strengthDesc" aria-live="polite" aria-atomic="true">&nbsp;</p>
+
+    <div style="margin-top: 1rem; display:flex; align-items:center;">
+      <label class="toggle-switch" for="showPasswordToggle" aria-label="Toggle show or hide password">
+        <input type="checkbox" id="showPasswordToggle" aria-checked="false" />
+        <span class="slider"></span>
+      </label>
+      <span class="toggle-label" id="toggleLabel">Show Password</span>
+    </div>
+
+    <section class="suggestions" aria-live="polite" aria-atomic="true">
+      <strong>Suggestions to enhance your password:</strong>
+      <ul id="suggestionsList" style="padding-left:1rem; margin-top:0.5rem;"></ul>
+    </section>
+
+  </main>
+
+<script>
+  // Password strength checking logic with difficulty to hack interpretation and suggestions
+  const passwordInput = document.getElementById("passwordInput");
+  const strengthFill = document.getElementById("strengthFill");
+  const strengthDesc = document.getElementById("strengthDesc");
+  const suggestionsList = document.getElementById("suggestionsList");
+  const showPasswordToggle = document.getElementById("showPasswordToggle");
+  const toggleLabel = document.getElementById("toggleLabel");
+
+  // Colors for fill corresponding to strength levels
+  const colors = [
+    '#ff4d4d',  // Very weak - red
+    '#ffb84d',  // Weak - orange
+    '#e3ef26',  // Medium - bright yellow (matches gradient start)
+    '#7cc576',  // Strong - greenish
+    '#076653'   // Very Strong - dark green (matches gradient end)
+  ];
+
+  const descriptions = [
+    "Very Weak - Extremely easy to hack",
+    "Weak - Easy to hack",
+    "Moderate - Could be hacked with moderate effort",
+    "Strong - Hard to hack",
+    "Very Strong - Very hard to hack"
+  ];
+
+  function checkPasswordStrength(pw) {
+    let score = 0;
+    const length = pw.length;
+
+    // Length based scoring
+    if (length >= 8) score += 1;
+    if (length >= 12) score += 1;
+    if (length >= 16) score += 1;
+
+    // Character variety checks
+    const hasLower = /[a-z]/.test(pw);
+    const hasUpper = /[A-Z]/.test(pw);
+    const hasNumber = /\d/.test(pw);
+    const hasSymbol = /[^A-Za-z0-9]/.test(pw);
+
+    const varietyCount = [hasLower, hasUpper, hasNumber, hasSymbol].filter(Boolean).length;
+    if (varietyCount >= 2) score += 1;
+    if (varietyCount >= 3) score += 1;
+
+    // Penalize very common passwords (a small dictionary subset for demo)
+    const commonPasswords = [
+      'password', '123456', '123456789', 'qwerty', 'abc123',
+      'letmein', 'welcome', 'admin', 'monkey', 'football'
+    ];
+    if (commonPasswords.includes(pw.toLowerCase())) {
+      score = 0;
+    }
+
+    // Cap the score to max index 4
+    if (score > 4) score = 4;
+
+    return score;
+  }
+
+  function generateSuggestions(pw) {
+    const suggestions = [];
+
+    if (pw.length < 8) {
+      suggestions.push("Make your password at least 8 characters long.");
+    }
+    if (!/[a-z]/.test(pw)) {
+      suggestions.push("Include lowercase letters.");
+    }
+    if (!/[A-Z]/.test(pw)) {
+      suggestions.push("Include uppercase letters.");
+    }
+    if (!/\d/.test(pw)) {
+      suggestions.push("Include numbers.");
+    }
+    if (!/[^A-Za-z0-9]/.test(pw)) {
+      suggestions.push("Include special symbols (e.g. @, #, $, %).");
+    }
+    if (pw.length >= 8 && pw.length < 12) {
+      suggestions.push("Consider making your password longer than 12 characters.");
+    }
+    if (['password', '123456', 'qwerty', 'abc123', 'letmein', 'welcome', 'admin', 'monkey', 'football'].includes(pw.toLowerCase())) {
+      suggestions.push("Avoid common passwords.");
+    }
+    if (suggestions.length === 0) {
+      suggestions.push("Your password is strong. Keep it unique and private!");
+    }
+
+    return suggestions;
+  }
+
+  passwordInput.addEventListener("input", (e) => {
+    const pw = e.target.value.trim();
+    if (!pw) {
+      strengthFill.style.width = "0%";
+      strengthDesc.textContent = "";
+      suggestionsList.innerHTML = "";
+      return;
+    }
+
+    const score = checkPasswordStrength(pw);
+    const fillWidth = ((score + 1) / 5) * 100;
+    strengthFill.style.width = `${fillWidth}%`;
+    strengthFill.style.backgroundColor = colors[score];
+    strengthDesc.textContent = descriptions[score];
+
+    // Populate suggestions
+    const suggestions = generateSuggestions(pw);
+    suggestionsList.innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
+  });
+
+  // Toggle password visibility
+  showPasswordToggle.addEventListener("change", (e) => {
+    const isChecked = e.target.checked;
+    passwordInput.type = isChecked ? "text" : "password";
+    toggleLabel.textContent = isChecked ? "Hide Password" : "Show Password";
+    e.target.setAttribute("aria-checked", isChecked);
+  });
+</script>
+</body>
+</html>
+
